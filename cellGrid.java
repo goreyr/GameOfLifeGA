@@ -32,6 +32,7 @@
 import java.util.Arrays;
 import java.util.Map;
 import java.util.HashMap;
+import java.io.*;
 
 
 public class cellGrid {
@@ -39,7 +40,7 @@ public class cellGrid {
     private int gridHeight = 14;
     private int gridWidth = 14;
     private boolean[][] cellMatrix;
-    private HashMap<boolean[][], Boolean> liveDieTable;
+    private HashMap<String, Boolean> liveDieTable;
     private int genCount = 0;
 
     /*
@@ -49,8 +50,8 @@ public class cellGrid {
      */
     public cellGrid() {
         cellMatrix = new boolean[gridHeight][gridWidth];
-        liveDieTable = new HashMap<boolean[][], Boolean>();
-        boolean[][] tempNeighborhood = new boolean[3][3];
+        liveDieTable = new HashMap<String, Boolean>();
+        String tempNeighborhood = "";
         initializeLiveDieTable(0, tempNeighborhood);
     }
 
@@ -68,11 +69,9 @@ public class cellGrid {
         this.gridWidth = gridWidth + 2;
 
         cellMatrix = new boolean[this.gridHeight][this.gridWidth];
-        liveDieTable = new HashMap<boolean[][], Boolean>();
-        boolean[][] tempNeighborhood = new boolean[3][3];
+        liveDieTable = new HashMap<String, Boolean>();
+        String tempNeighborhood = "";
         initializeLiveDieTable(0, tempNeighborhood);
-
-
     }
 
     /*
@@ -81,20 +80,59 @@ public class cellGrid {
     public static void main(String args[]) {
         cellGrid myGrid = new cellGrid(12, 12);
 
-        boolean[][] startingConfig = new boolean[12][12];
+        boolean[][] startingConfig = myGrid.loadStartingConfig();
         myGrid.setStartingConfiguration(startingConfig);
+        myGrid.runGame(5);
 
-        boolean[][] neighTest = {{false, false, false}, {true, true, true}, {false, false, false}};
-
-        /*if (myGrid.liveDieTable.containsKey(neighTest)) {
-            System.out.println("It worked");
-        } else { System.out.println("It broke."); }*/
-        System.out.println(myGrid.liveDieTable.size());
-
-        myGrid.printGrid();
+        startingConfig = new boolean[12][12];
+        myGrid.setStartingConfiguration(startingConfig);
+        myGrid.runGame(5);
     }
 
+    private void checkLookupTable(String neighborhood) {
+        if (isAliveNextGen(neighborhood)) {
+            System.out.println("Will Be Alive");
+        } else { System.out.println("will die");}
+    }
 
+    /*
+
+    Citation: https://stackoverflow.com/questions/18551251/how-to-open-a-text-file
+
+     */
+    private boolean[][] loadStartingConfig() {
+        String fileName = "startingConfig.txt";
+        String line = null;
+        boolean[][] startingConfig= new boolean[gridHeight][gridWidth];
+        int lineCounter = 0;
+
+        try {
+            // FileReader reads text files in the default encoding.
+            FileReader fileReader = new FileReader(fileName);
+
+            // Always wrap FileReader in BufferedReader.
+            BufferedReader bufferedReader = new BufferedReader(fileReader);
+
+            while((line = bufferedReader.readLine()) != null) {
+                for (int i = 0; i < line.length(); i++) {
+                    if (line.charAt(i) == '1') {
+                        startingConfig[lineCounter][i] = true;
+                    }
+                }
+                lineCounter++;
+            }
+
+            // Always close files.
+            bufferedReader.close();
+        }
+        catch(FileNotFoundException ex) {
+            System.out.println("Unable to open file '" + fileName + "'");
+        }
+        catch(IOException ex) {
+            System.out.println("Error reading file '" + fileName + "'");
+        }
+        return startingConfig;
+    }
 
     /*
     Sets the initial configuration of living and dead cells on the cellMatrix.
@@ -111,36 +149,63 @@ public class cellGrid {
         }
     }
 
-    private void updateRowChunk(int rowARelInd, int curRow, int curCol, boolean[] rowChunkA, boolean[] rowChunkB, boolean[] rowChunkC) {
-        switch (rowARelInd) {
-            case 0:
-                rowChunkC = Arrays.copyOfRange(cellMatrix[curRow + 1], curCol-1, curCol+2);
-                break;
-            case 1:
-                rowChunkB = Arrays.copyOfRange(cellMatrix[curRow + 1], curCol-1, curCol+2);
-                break;
-            case 2:
-                rowChunkA = Arrays.copyOfRange(cellMatrix[curRow + 1], curCol-1, curCol+2);
-                break;
-            default:
-                System.out.println("It's dead, Jim.");
+    public void clearCellMatrix() {
+        for (int row = 0; row < gridHeight; row++) {
+            for (int col = 0; col < gridWidth; col++) {
+                cellMatrix[row][col] = false;
+            }
         }
     }
 
-    private boolean[][] makeNeighborhood(int rowARelInd, boolean[] rowChunkA, boolean[] rowChunkB, boolean[] rowChunkC) {
-        boolean[][] neighborhood = new boolean[3][3];
-        neighborhood[rowARelInd] = rowChunkA;
-        neighborhood[(rowARelInd + 1) % 3] = rowChunkB;
-        neighborhood[(rowARelInd + 2) % 2] = rowChunkC;
+    private void runGame(int numGenerations) {
+        System.out.println("Welcome to the Game of Life. Here is your starting configuration:");
+        printGrid();
+
+        for (int gen = 0; gen < numGenerations; gen++) {
+            nextGen();
+            System.out.println("\nGeneration " + String.valueOf(gen + 1) + ":");
+            printGrid();
+        }
+
+        clearCellMatrix();
+
+        System.out.println("Thanks for playing.\n");
+    }
+
+    private String makeNeighborhood(int rowARelInd, String rowChunkA, String rowChunkB, String rowChunkC) {
+        String neighborhood = "";
+        switch (rowARelInd) {
+            case 0:
+                neighborhood = rowChunkA + rowChunkB + rowChunkC;
+                break;
+            case 1:
+                neighborhood = rowChunkC + rowChunkA + rowChunkB;
+                break;
+            case 2:
+                neighborhood = rowChunkB + rowChunkC + rowChunkA;
+                break;
+            default:
+                System.out.println("It's dead in the neighborhood, Jim.");
+        }
         return neighborhood;
     }
 
-    private boolean isAliveNextGen(boolean[][] neighborhood) {
-        boolean status = this.liveDieTable.get(neighborhood);
+    private boolean isAliveNextGen(String neighborhood) {
+        boolean status = liveDieTable.get(neighborhood);
         return status;
     }
 
-
+    private String copyChunk(int rowIndex, int leftColBound, int rightColBound) {
+        String chunk = "";
+        for (int i = leftColBound; i < rightColBound; i++) {
+            if (cellMatrix[rowIndex][i]) {
+                chunk += "1";
+            } else {
+                chunk += "0";
+            }
+        }
+        return chunk;
+    }
 
 
 
@@ -151,22 +216,36 @@ public class cellGrid {
      */
     public void nextGen() {
         boolean[][] cellMatrixNew = new boolean[this.gridHeight][this.gridWidth];
-        boolean[] rowChunkA = new boolean[3];
-        boolean[] rowChunkB = new boolean[3];
-        boolean[] rowChunkC = new boolean[3];
-        boolean[][] neighborhood = new boolean[3][3];
-        int rowARelInd = 0;
+        String rowChunkA = "";
+        String rowChunkB = "";
+        String rowChunkC = "";
+        String neighborhood;
+        int rowARelInd;
 
         for (int curCol = 1; curCol < gridWidth -1; curCol++) {
-            rowChunkA = Arrays.copyOfRange(cellMatrix[0], curCol-1, curCol+2);
-            rowChunkB = Arrays.copyOfRange(cellMatrix[1], curCol-1, curCol+2);
+            rowChunkA = copyChunk(0, curCol-1, curCol +2);
+            rowChunkB = copyChunk(1, curCol-1, curCol +2);
             rowARelInd = 0;
 
             for (int curRow = 1; curRow < gridHeight -1; curRow++) {
-                updateRowChunk(rowARelInd, curRow, curCol, rowChunkA, rowChunkB, rowChunkC);
+                switch (rowARelInd) {
+                    case 0:
+                        rowChunkC = copyChunk(curRow+1, curCol-1, curCol+2);
+                        break;
+                    case 1:
+                        rowChunkB = copyChunk(curRow+1, curCol-1, curCol+2);
+                        break;
+                    case 2:
+                        rowChunkA = copyChunk(curRow+1, curCol-1, curCol+2);
+                        break;
+                    default:
+                        System.out.println("It's dead, Jim.");
+                }
                 neighborhood = makeNeighborhood(rowARelInd, rowChunkA, rowChunkB, rowChunkC);
                 cellMatrixNew[curRow][curCol] = isAliveNextGen(neighborhood);
-                rowARelInd = (rowARelInd - 1) % 3;
+                if (rowARelInd == 0) {
+                    rowARelInd = 2;
+                } else { rowARelInd--; }
             }
         }
         updateCellMatrix(cellMatrixNew);
@@ -202,39 +281,75 @@ public class cellGrid {
         System.out.println(new String(new char[gridWidth]).replace("\0", "\u25AB "));
     }
 
-    public boolean checkLookupTable(boolean[][] neighborhood) {
-        return isAliveNextGen(neighborhood);
-    }
-
-    private void initializeLiveDieTable(int curCellIndex, boolean[][] neighborhood) {
+    private void initializeLiveDieTable(int curCellIndex, String neighborhood) {
         if (curCellIndex > 8) {
             addNeighborhoodToTable(neighborhood, evalNeighborhoodType(neighborhood));
         }
         else {
-            neighborhood[curCellIndex/3][curCellIndex % 3] = true;
-            initializeLiveDieTable(curCellIndex + 1, neighborhood);
-            neighborhood[curCellIndex/3][curCellIndex % 3] = false;
-            initializeLiveDieTable(curCellIndex + 1, neighborhood);
+            String neighborhood0 = neighborhood + "0";
+            String neighborhood1 = neighborhood + "1";
+            initializeLiveDieTable(curCellIndex + 1, neighborhood0);
+            initializeLiveDieTable(curCellIndex + 1, neighborhood1);
         }
     }
 
-    private void addNeighborhoodToTable(boolean[][] neighborhood, boolean resultingStatus) {
+    private void addNeighborhoodToTable(String neighborhood, boolean resultingStatus) {
         this.liveDieTable.put(neighborhood, evalNeighborhoodType(neighborhood));
     }
 
-    private boolean evalNeighborhoodType(boolean[][] neighborhood) {
-        int totalNeighbors = Arrays.deepToString(neighborhood).replaceAll("[^t]", "").length();
-        if (neighborhood[1][1]) {
-            if (totalNeighbors == 3 | totalNeighbors == 4) {
-                return true;
+    public boolean evalNeighborhoodType(String neighborhood) {
+        int neighborCount = 0;
+        boolean curAlive = false;
+        char alive = '1';
+
+        if (neighborhood.charAt(4) == alive) {
+            curAlive = true;
+        }
+
+        for (int i = 0; i < 9; i++) {
+            if (neighborhood.charAt(i) == alive) {
+                if (i != 4) {
+                    neighborCount++;
+                }
             }
         }
-        else {
-            if (totalNeighbors == 3) {
+
+        if (neighborCount == 3) {
+            return true;
+        } else {
+            if (curAlive && neighborCount == 2) {
                 return true;
             }
         }
         return false;
     }
+
+    private void testLookupTable() {
+        String testNeighborhood1 = "000000000";
+        String testNeighborhood2 = "111111111";
+        String testNeighborhood3 = "111101111";
+        String testNeighborhood4 = "000010000";
+        String testNeighborhood5 = "111000000";
+        String testNeighborhood6 = "000111000";
+        String testNeighborhood7 = "000000111";
+        String testNeighborhood8 = "101000101";
+        String testNeighborhood9 = "010000010";
+        String testNeighborhood10 = "010010010";
+
+        System.out.println("These should all be living");
+        checkLookupTable(testNeighborhood5);
+        checkLookupTable(testNeighborhood6);
+        checkLookupTable(testNeighborhood7);
+        checkLookupTable(testNeighborhood10);
+
+        System.out.println("These should all be dead");
+        checkLookupTable(testNeighborhood1);
+        checkLookupTable(testNeighborhood2);
+        checkLookupTable(testNeighborhood3);
+        checkLookupTable(testNeighborhood4);
+        checkLookupTable(testNeighborhood8);
+        checkLookupTable(testNeighborhood9);
+    }
+
 
 }
