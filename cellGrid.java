@@ -89,12 +89,6 @@ public class cellGrid {
         myGrid.runGame(5);
     }
 
-    private void checkLookupTable(String neighborhood) {
-        if (isAliveNextGen(neighborhood)) {
-            System.out.println("Will Be Alive");
-        } else { System.out.println("will die");}
-    }
-
     /*
 
     Citation: https://stackoverflow.com/questions/18551251/how-to-open-a-text-file
@@ -351,5 +345,10 @@ public class cellGrid {
         checkLookupTable(testNeighborhood9);
     }
 
+    private void checkLookupTable(String neighborhood) {
+        if (isAliveNextGen(neighborhood)) {
+            System.out.println("Will Be Alive");
+        } else { System.out.println("will die");}
+    }
 
 }
