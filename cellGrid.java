@@ -41,6 +41,7 @@ public class cellGrid {
     private int gridWidth = 14;
     private boolean[][] cellMatrix;
     private HashMap<String, Boolean> liveDieTable;
+    private HashMap<String, Integer> scoreMap;
     private int genCount = 0;
 
     /*
@@ -51,6 +52,7 @@ public class cellGrid {
     public cellGrid() {
         cellMatrix = new boolean[gridHeight][gridWidth];
         liveDieTable = new HashMap<String, Boolean>();
+        scoreMap = new HashMap<String, Integer>();
         String tempNeighborhood = "";
         initializeLiveDieTable(0, tempNeighborhood);
     }
@@ -70,6 +72,7 @@ public class cellGrid {
 
         cellMatrix = new boolean[this.gridHeight][this.gridWidth];
         liveDieTable = new HashMap<String, Boolean>();
+        scoreMap = new HashMap<String, Integer>();
         String tempNeighborhood = "";
         initializeLiveDieTable(0, tempNeighborhood);
     }
@@ -80,13 +83,15 @@ public class cellGrid {
     public static void main(String args[]) {
         cellGrid myGrid = new cellGrid(12, 12);
 
-        boolean[][] startingConfig = myGrid.loadStartingConfig();
+        Configuration startingConfig = myGrid.loadStartingConfig();
         myGrid.setStartingConfiguration(startingConfig);
-        myGrid.runGame(5);
+        //myGrid.runGame(5);
 
-        startingConfig = new boolean[12][12];
-        myGrid.setStartingConfiguration(startingConfig);
-        myGrid.runGame(5);
+        //boolean[][] startingConfig = new boolean[12][12];
+        //myGrid.setStartingConfiguration(startingConfig);
+
+        int score = myGrid.runGame(2);
+        System.out.println("Final Score: " + String.valueOf(score));
     }
 
     /*
@@ -94,10 +99,10 @@ public class cellGrid {
     Citation: https://stackoverflow.com/questions/18551251/how-to-open-a-text-file
 
      */
-    private boolean[][] loadStartingConfig() {
+    private Configuration loadStartingConfig() {
         String fileName = "startingConfig.txt";
         String line = null;
-        boolean[][] startingConfig= new boolean[gridHeight][gridWidth];
+        Configuration startingConfig = new Configuration(gridHeight, gridWidth);
         int lineCounter = 0;
 
         try {
@@ -110,7 +115,7 @@ public class cellGrid {
             while((line = bufferedReader.readLine()) != null) {
                 for (int i = 0; i < line.length(); i++) {
                     if (line.charAt(i) == '1') {
-                        startingConfig[lineCounter][i] = true;
+                        startingConfig.setCell(lineCounter, i, true);
                     }
                 }
                 lineCounter++;
@@ -135,10 +140,10 @@ public class cellGrid {
     @param initialConfig    2-D array that holds boolean values, with true
                             denoting living cells, false denoting dead cells.
      */
-    public void setStartingConfiguration(boolean[][] initialConfig) {
+    public void setStartingConfiguration(Configuration initialConfig) {
         for (int row = 1; row < gridHeight - 1; row++) {
             for (int col = 1; col < gridWidth - 1; col++) {
-                cellMatrix[row][col] = initialConfig[row-1][col-1];
+                cellMatrix[row][col] = initialConfig.getCell(row-1, col-1);
             }
         }
     }
@@ -151,19 +156,69 @@ public class cellGrid {
         }
     }
 
-    private void runGame(int numGenerations) {
+    public int runGame(int numGenerations) {
         System.out.println("Welcome to the Game of Life. Here is your starting configuration:");
         printGrid();
+        int totalScore = 0;
 
         for (int gen = 0; gen < numGenerations; gen++) {
-            nextGen();
+            totalScore += nextGen();
             System.out.println("\nGeneration " + String.valueOf(gen + 1) + ":");
             printGrid();
         }
 
-        clearCellMatrix();
-
         System.out.println("Thanks for playing.\n");
+
+        return totalScore;
+    }
+
+    /*
+    Updates which cells are alive and which cells are dead in the next
+    generation. The cells on the outer edge do not count as live cells and
+    may not come to life. Returns the score for each generation.
+     */
+    public int nextGen() {
+        boolean[][] cellMatrixNew = new boolean[this.gridHeight][this.gridWidth];
+        String rowChunkA = "";
+        String rowChunkB = "";
+        String rowChunkC = "";
+        String neighborhood;
+        int rowARelInd;
+        int score = 0;
+        int numLiveCells = 0;
+
+        for (int curCol = 1; curCol < gridWidth -1; curCol++) {
+            rowChunkA = copyChunk(0, curCol-1, curCol +2);
+            rowChunkB = copyChunk(1, curCol-1, curCol +2);
+            rowARelInd = 0;
+
+            for (int curRow = 1; curRow < gridHeight -1; curRow++) {
+                switch (rowARelInd) {
+                    case 0:
+                        rowChunkC = copyChunk(curRow+1, curCol-1, curCol+2);
+                        break;
+                    case 1:
+                        rowChunkB = copyChunk(curRow+1, curCol-1, curCol+2);
+                        break;
+                    case 2:
+                        rowChunkA = copyChunk(curRow+1, curCol-1, curCol+2);
+                        break;
+                    default:
+                        System.out.println("It's dead, Jim.");
+                }
+                neighborhood = makeNeighborhood(rowARelInd, rowChunkA, rowChunkB, rowChunkC);
+                cellMatrixNew[curRow][curCol] = isAliveNextGen(neighborhood);
+                if (isAliveNextGen(neighborhood)) {
+                    score += 1;
+                }
+                score += scoreNeighborhood(neighborhood, curRow, curCol);
+                if (rowARelInd == 0) {
+                    rowARelInd = 2;
+                } else { rowARelInd--; }
+            }
+        }
+        updateCellMatrix(cellMatrixNew);
+        return score;
     }
 
     private String makeNeighborhood(int rowARelInd, String rowChunkA, String rowChunkB, String rowChunkC) {
@@ -189,6 +244,26 @@ public class cellGrid {
         return status;
     }
 
+    private int scoreNeighborhood(String neighborhood, int curRow, int curCol) {
+        if (neighborhood.equals("000000000")) {
+            return 0;
+        }
+        String neighborhoodAndLocation = neighborhood + "r" + String.valueOf(curRow) + "c" + String.valueOf(curCol);
+
+        if (scoreMap.containsKey(neighborhood)) {
+            if (scoreMap.containsKey(neighborhoodAndLocation)) {
+                return 250;
+            } else {
+                scoreMap.put(neighborhoodAndLocation, 1);
+                return 500;
+            }
+        } else {
+            scoreMap.put(neighborhood, 1);
+            scoreMap.put(neighborhoodAndLocation, 1);
+            return 0;
+        }
+    }
+
     private String copyChunk(int rowIndex, int leftColBound, int rightColBound) {
         String chunk = "";
         for (int i = leftColBound; i < rightColBound; i++) {
@@ -203,47 +278,6 @@ public class cellGrid {
 
 
 
-    /*
-    Updates which cells are alive and which cells are dead in the next
-    generation. The cells on the outer edge do not count as live cells and
-    may not come to life.
-     */
-    public void nextGen() {
-        boolean[][] cellMatrixNew = new boolean[this.gridHeight][this.gridWidth];
-        String rowChunkA = "";
-        String rowChunkB = "";
-        String rowChunkC = "";
-        String neighborhood;
-        int rowARelInd;
-
-        for (int curCol = 1; curCol < gridWidth -1; curCol++) {
-            rowChunkA = copyChunk(0, curCol-1, curCol +2);
-            rowChunkB = copyChunk(1, curCol-1, curCol +2);
-            rowARelInd = 0;
-
-            for (int curRow = 1; curRow < gridHeight -1; curRow++) {
-                switch (rowARelInd) {
-                    case 0:
-                        rowChunkC = copyChunk(curRow+1, curCol-1, curCol+2);
-                        break;
-                    case 1:
-                        rowChunkB = copyChunk(curRow+1, curCol-1, curCol+2);
-                        break;
-                    case 2:
-                        rowChunkA = copyChunk(curRow+1, curCol-1, curCol+2);
-                        break;
-                    default:
-                        System.out.println("It's dead, Jim.");
-                }
-                neighborhood = makeNeighborhood(rowARelInd, rowChunkA, rowChunkB, rowChunkC);
-                cellMatrixNew[curRow][curCol] = isAliveNextGen(neighborhood);
-                if (rowARelInd == 0) {
-                    rowARelInd = 2;
-                } else { rowARelInd--; }
-            }
-        }
-        updateCellMatrix(cellMatrixNew);
-    }
 
     private void updateCellMatrix(boolean[][] cellMatrixNew) {
         for(int i=0; i < gridHeight; i++)
