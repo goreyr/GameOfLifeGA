@@ -14,8 +14,8 @@ public class Configuration implements Comparable<Configuration>{
     private boolean[][] configMatrix;
     private int matrixHeight = 12;
     private int matrixWidth = 12;
-    private int score = 0;
-    private Random randGen;
+    private double score = 0;
+    private Random randGen = new Random();
 
     public Configuration() {
         configMatrix = new boolean[matrixHeight][matrixWidth];
@@ -29,9 +29,9 @@ public class Configuration implements Comparable<Configuration>{
 
     public int compareTo(Configuration otherConfig) {
         if (this.score > otherConfig.getScore()) {
-            return 1;
-        } else {
             return -1;
+        } else {
+            return 1;
         }
     }
 
@@ -48,6 +48,15 @@ public class Configuration implements Comparable<Configuration>{
                 }
             }
         }
+    }
+
+    public void deepCopy(Configuration copyFrom) {
+        for (int row = 0; row < matrixHeight; row++) {
+            for (int col = 0; col < matrixWidth; col++) {
+               this.setCell(row, col, copyFrom.getCell(row, col));
+            }
+        }
+        this.setScore(copyFrom.getScore());
     }
 
     public void setRandomConfiguration(int cellChanceToLive)  {
@@ -104,16 +113,15 @@ public class Configuration implements Comparable<Configuration>{
         return region;
     }
 
-
     public void setRandomConfiguration()  {
         setRandomConfiguration(30);
     }
 
-    public int getScore() {
+    public double getScore() {
         return this.score;
     }
 
-    public void setScore(int score) {
+    public void setScore(double score) {
         this.score = score;
     }
 }

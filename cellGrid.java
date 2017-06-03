@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.HashMap;
 import java.io.*;
+import java.util.Scanner;
 
 
 public class cellGrid {
@@ -90,7 +91,7 @@ public class cellGrid {
         //boolean[][] startingConfig = new boolean[12][12];
         //myGrid.setStartingConfiguration(startingConfig);
 
-        int score = myGrid.runGame(2);
+        double score = myGrid.runGame(30, true);
         System.out.println("Final Score: " + String.valueOf(score));
     }
 
@@ -156,18 +157,26 @@ public class cellGrid {
         }
     }
 
-    public int runGame(int numGenerations) {
-        System.out.println("Welcome to the Game of Life. Here is your starting configuration:");
-        printGrid();
+    public double runGame(int numGenerations, boolean printToTerminal) {
         int totalScore = 0;
 
-        for (int gen = 0; gen < numGenerations; gen++) {
-            totalScore += nextGen();
-            System.out.println("\nGeneration " + String.valueOf(gen + 1) + ":");
+        if (printToTerminal) {
+            System.out.println("Welcome to the Game of Life. Here is your starting configuration:");
             printGrid();
         }
 
-        System.out.println("Thanks for playing.\n");
+        for (int gen = 0; gen < numGenerations; gen++) {
+            scoreMap = new HashMap<String, Integer>();
+            totalScore += nextGen();
+            if (printToTerminal) {
+                System.out.println("\nGeneration " + String.valueOf(gen + 1) + ":");
+                printGrid();
+            }
+        }
+
+        if (printToTerminal) {
+            System.out.println("Thanks for playing.\n");
+        }
 
         return totalScore;
     }
@@ -177,14 +186,14 @@ public class cellGrid {
     generation. The cells on the outer edge do not count as live cells and
     may not come to life. Returns the score for each generation.
      */
-    public int nextGen() {
+    public double nextGen() {
         boolean[][] cellMatrixNew = new boolean[this.gridHeight][this.gridWidth];
         String rowChunkA = "";
         String rowChunkB = "";
         String rowChunkC = "";
         String neighborhood;
         int rowARelInd;
-        int score = 0;
+        double score = 0;
         int numLiveCells = 0;
 
         for (int curCol = 1; curCol < gridWidth -1; curCol++) {
@@ -244,7 +253,7 @@ public class cellGrid {
         return status;
     }
 
-    private int scoreNeighborhood(String neighborhood, int curRow, int curCol) {
+    private double scoreNeighborhood(String neighborhood, int curRow, int curCol) {
         if (neighborhood.equals("000000000")) {
             return 0;
         }
@@ -276,9 +285,6 @@ public class cellGrid {
         return chunk;
     }
 
-
-
-
     private void updateCellMatrix(boolean[][] cellMatrixNew) {
         for(int i=0; i < gridHeight; i++)
             for(int j=0; j < gridWidth; j++)
@@ -307,6 +313,41 @@ public class cellGrid {
             System.out.println(curRowString + "\u25AB");
         }
         System.out.println(new String(new char[gridWidth]).replace("\0", "\u25AB "));
+    }
+
+    public void viewSimulation(boolean stepThru, int numGens, Configuration config) {
+        setStartingConfiguration(config);
+        final String ANSI_CLS = "\u001b[2J";
+        final String ANSI_HOME = "\u001b[H";
+
+        int totalScore = 0;
+
+        System.out.print(ANSI_CLS + ANSI_HOME);
+        System.out.flush();
+        System.out.println("Welcome to the Game of Life. Press the enter key to step through each frame.");
+        Scanner scanner = new Scanner(System.in);
+        scanner.nextLine();
+        System.out.print(ANSI_CLS + ANSI_HOME);
+        System.out.flush();
+
+        System.out.println("Here is your starting configuration:\n");
+        printGrid();
+
+        scanner = new Scanner(System.in);
+        scanner.nextLine();
+
+        for (int gen = 0; gen < numGens; gen++) {
+            System.out.print(ANSI_CLS + ANSI_HOME);
+            System.out.flush();
+            scoreMap = new HashMap<String, Integer>();
+            totalScore += nextGen();
+            System.out.println("\nGeneration " + String.valueOf(gen + 1) + ":");
+            printGrid();
+            scanner = new Scanner(System.in);
+            scanner.nextLine();
+
+        }
+        System.out.println("Your final score is: " + String.valueOf(totalScore));
     }
 
     private void initializeLiveDieTable(int curCellIndex, String neighborhood) {

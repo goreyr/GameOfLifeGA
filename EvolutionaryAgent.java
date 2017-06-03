@@ -16,84 +16,182 @@ import java.util.Calendar;
 import java.util.*;
 
 public class EvolutionaryAgent {
-    public Configuration[] population;
-    private int gridHeight = 12;
-    private int gridWidth = 12;
-    private int popSize = 400;
-    private int numGens = 100;
-    private Random randGen;
+    private cellGrid myGrid;
+    private Configuration[] population;
+    private Random randGen = new Random();
 
-    private int numElites = 3;
+    private int gridHeight = 16;
+    private int gridWidth = 16;
 
-    private int mutationChance = 3;
+
+    private int popSize = 40;
+    private int numGens = 90;
+    private int numGameGens = 80;
+    private int numElites = 5;
+    private int tournamentSize = 8;
+
+    private int mutationChance = 5;
     private int crossoverChance = 5;
+    private double hyperMutationPercentThresh = 0.9;
 
 
     public EvolutionaryAgent() {
+        myGrid = new cellGrid(gridHeight, gridWidth);
         generateStartingPopulation();
     }
 
     public EvolutionaryAgent(int numGens) {
         this.numGens = numGens;
+        myGrid = new cellGrid(gridHeight, gridWidth);
         generateStartingPopulation();
     }
 
-    public EvolutionaryAgent(int numGens, int popSize) {
-        this.numGens = numGens;
-        this.popSize = popSize;
-        generateStartingPopulation();
-    }
-
-
-    public EvolutionaryAgent(int gridHeight, int gridWidth, int numGens, int popSize) {
+    public EvolutionaryAgent(int gridHeight, int gridWidth) {
         this.gridHeight = gridHeight;
         this.gridWidth = gridWidth;
-        this.numGens = numGens;
         this.popSize = popSize;
+        myGrid = new cellGrid(gridHeight, gridWidth);
         generateStartingPopulation();
     }
 
     public static void main(String args[]) {
-        EvolutionaryAgent myAgent = new EvolutionaryAgent(12, 12, 1, 5);
-        myAgent.population[0].setScore(5);
-        myAgent.population[2].setScore(4);
-        myAgent.population[3].setScore(9);
-
-        myAgent.printPopScores();
-        myAgent.sortPopulation();
-        myAgent.printPopScores();
+        EvolutionaryAgent myAgent = new EvolutionaryAgent(16, 16);
+        Configuration bestPattern = myAgent.evolvePattern(true);
+        myAgent.displayPattern(bestPattern);
+        System.out.println(bestPattern.getScore());
+        myAgent.myGrid.viewSimulation(true, 30, bestPattern);
     }
 
-    private void evolvePatterns() {
+    public void displayPattern(Configuration config) {
+        myGrid.setStartingConfiguration(config);
+        myGrid.printGrid();
+    }
+
+    private void generateStartingPopulation() {
+        population = new Configuration[popSize];
+        for (int i = 0; i < popSize; i++) {
+            population[i] = new Configuration(gridHeight, gridWidth);
+        }
+    }
+
+    private void initializePopulation() {
+        for (int i = 0; i < popSize; i++) {
+            population[i].setRandomConfiguration(10);
+        }
+    }
+
+    private void initializeNewPopulation(Configuration[] newPopulation) {
+        for (int i = 0; i < popSize; i++) {
+            newPopulation[i] = new Configuration(gridHeight, gridWidth);
+        }
+    }
+
+    private double calcAvgFitness() {
+        double avgFitness = 0;
+        for (int i = 0; i < popSize; i++) {
+            avgFitness += population[i].getScore();
+        }
+        return avgFitness/popSize;
+    }
+
+    private void triggerHyperMutation() {
+        mutationChance = 20;
+        crossoverChance = 20;
+    }
+
+    private void resetVarianceOperators() {
+        mutationChance = 5;
+        crossoverChance = 5;
+    }
+
+    private Configuration evolvePattern(boolean withHyperMutation) {
         generateStartingPopulation();
         initializePopulation();
-        cellGrid myGrid = new cellGrid(gridHeight, gridWidth);
-        int numGameGenerations = 40;
+        double oldAvgFitness = 1;
+        double newAvgFitness = 1;
+        boolean hyperMutationTriggered = false;
+        int hyperMutationTimer = 0;
 
         for (int gen = 0; gen < numGens; gen++) {
             // Evaluation
             for (Configuration config: population) {
                 myGrid.setStartingConfiguration(config);
-                config.setScore(myGrid.runGame(numGameGenerations));
+                config.setScore(myGrid.runGame(numGameGens, false));
             }
+            System.out.println("Gen " + String.valueOf(gen));
+            sortPopulation();
+
+            // Optional triggered hypermutation
+            if (withHyperMutation) {
+                newAvgFitness = calcAvgFitness();
+                if (hyperMutationTimer > 10) {
+                    if (newAvgFitness < hyperMutationPercentThresh * oldAvgFitness) {
+                        triggerHyperMutation();
+                        hyperMutationTriggered = true;
+                        hyperMutationTimer = -1;
+                    }
+                }
+                hyperMutationTimer++;
+            }
+
             // Selection (w/ elitism)
-            cloneElites();
-            selectRemainingIndividuals(numElites);
+            Configuration[] newPopulation = new Configuration[popSize];
+            initializeNewPopulation(newPopulation);
+            cloneElites(newPopulation);
+            selectRemainingIndividuals(numElites, newPopulation);
+            saveNewPopulation(newPopulation);
 
             // Apply chance for mutation
             applyVariationOperators(numElites, mutationChance, crossoverChance);
+
+            // Reset mutation operators (if using triggered hypermutation)
+            if (hyperMutationTriggered) {
+                resetVarianceOperators();
+                hyperMutationTriggered = false;
+            }
         }
+
+        for (Configuration config: population) {
+            myGrid.setStartingConfiguration(config);
+            config.setScore(myGrid.runGame(numGameGens, false));
+        }
+
         Configuration bestConfig = findBestConfiguration();
         saveConfiguration(bestConfig);
+        return bestConfig;
     }
 
-    private void cloneElites() {
+    private void cloneElites(Configuration[] newPopulation) {
         sortPopulation();
+        for (int i = 0; i < numElites; i++) {
+            newPopulation[i].deepCopy(population[i]);
+        }
+    }
 
+    private void selectRemainingIndividuals(int startingIndex, Configuration[] newPopulation) {
+        for (int i = startingIndex; i < popSize; i++) {
+            shufflePopulation(startingIndex);
+            Configuration bestConfig = population[0];
+            for (int j = 0; j < tournamentSize; j++) {
+                if (bestConfig.getScore() < population[j].getScore()) {
+                    bestConfig.deepCopy(population[j]);
+                }
+            }
+            newPopulation[i].deepCopy(bestConfig);
+        }
+    }
+
+    private void saveNewPopulation(Configuration[] newPopulation) {
+        for (int i = 0; i < popSize; i++) {
+            population[i].deepCopy(newPopulation[i]);
+        }
     }
 
     public void sortPopulation() {
-        Collections.sort(population);
+        Arrays.asList(population);
+        List<Configuration> popList = new ArrayList<Configuration>(Arrays.asList(population));
+        Collections.sort(popList);
+        population = popList.toArray(population);
     }
 
     public void printPopScores() {
@@ -102,7 +200,12 @@ public class EvolutionaryAgent {
         }
     }
 
-    private void selectRemainingIndividuals(int startingIndex) {}
+    public void printNewPopScores(Configuration[] newPop) {
+        for (int i = 0; i < popSize; i++) {
+            System.out.println(newPop[i].getScore());
+        }
+    }
+
 
     private Configuration findBestConfiguration() {
         Configuration bestConfig = population[0];
@@ -122,7 +225,7 @@ public class EvolutionaryAgent {
             String fileName = "";
             String timeLog = new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime());
 
-            BufferedWriter out = new BufferedWriter(new FileWriter("bestConfig" + timeLog + ".txt"));
+            BufferedWriter out = new BufferedWriter(new FileWriter("datafile/bestConfig" + timeLog + ".txt"));
             for (int row = 0; row < gridHeight; row++) {
                 for (int col = 0; col < gridWidth; col++) {
                     if (bestConfig.getCell(row,col)) {
@@ -137,17 +240,6 @@ public class EvolutionaryAgent {
         } catch (IOException e) {}
     }
 
-    private void generateStartingPopulation() {
-        for (int i = 0; i < popSize; i++) {
-            population[i] = new Configuration(gridHeight, gridWidth);
-        }
-    }
-
-    private void initializePopulation() {
-        for (int i = 0; i < popSize; i++) {
-            population[i].setRandomConfiguration(30);
-        }
-    }
 
     private void applyVariationOperators(int startingInd, int mutationChance, int crossoverChance) {
         for (int i = startingInd; i < popSize; i++) {
