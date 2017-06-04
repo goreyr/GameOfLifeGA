@@ -84,7 +84,7 @@ public class cellGrid {
     public static void main(String args[]) {
         cellGrid myGrid = new cellGrid(12, 12);
 
-        Configuration startingConfig = myGrid.loadStartingConfig();
+        Configuration startingConfig = myGrid.loadStartingConfig("startingConfig.txt");
         myGrid.setStartingConfiguration(startingConfig);
         //myGrid.runGame(5);
 
@@ -100,8 +100,7 @@ public class cellGrid {
     Citation: https://stackoverflow.com/questions/18551251/how-to-open-a-text-file
 
      */
-    private Configuration loadStartingConfig() {
-        String fileName = "startingConfig.txt";
+    public Configuration loadStartingConfig(String fileName) {
         String line = null;
         Configuration startingConfig = new Configuration(gridHeight, gridWidth);
         int lineCounter = 0;

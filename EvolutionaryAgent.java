@@ -23,17 +23,15 @@ public class EvolutionaryAgent {
     private int gridHeight = 16;
     private int gridWidth = 16;
 
-
-    private int popSize = 40;
-    private int numGens = 90;
-    private int numGameGens = 80;
-    private int numElites = 5;
-    private int tournamentSize = 8;
+    private int popSize = 200;
+    private int numGens = 100;
+    private int numGameGens = 50;
+    private int numElites = 20;
+    private int tournamentSize = 40;
 
     private int mutationChance = 5;
     private int crossoverChance = 5;
     private double hyperMutationPercentThresh = 0.9;
-
 
     public EvolutionaryAgent() {
         myGrid = new cellGrid(gridHeight, gridWidth);
@@ -49,17 +47,85 @@ public class EvolutionaryAgent {
     public EvolutionaryAgent(int gridHeight, int gridWidth) {
         this.gridHeight = gridHeight;
         this.gridWidth = gridWidth;
+        myGrid = new cellGrid(gridHeight, gridWidth);
+        generateStartingPopulation();
+    }
+
+    public EvolutionaryAgent(int gridHeight, int gridWidth, int popSize) {
+        this.gridHeight = gridHeight;
+        this.gridWidth = gridWidth;
         this.popSize = popSize;
         myGrid = new cellGrid(gridHeight, gridWidth);
         generateStartingPopulation();
     }
 
     public static void main(String args[]) {
-        EvolutionaryAgent myAgent = new EvolutionaryAgent(16, 16);
+        /*EvolutionaryAgent myAgent = new EvolutionaryAgent(200);
         Configuration bestPattern = myAgent.evolvePattern(true);
         myAgent.displayPattern(bestPattern);
         System.out.println(bestPattern.getScore());
-        myAgent.myGrid.viewSimulation(true, 30, bestPattern);
+        myAgent.myGrid.viewSimulation(true, 50, bestPattern);*/
+
+        int numRuns = 15;
+        //baseCaseTesting();
+        //knownPatternTesting();
+        //runTest(numRuns);
+        testHypermutation(numRuns);
+    }
+
+    public static void runTest(int numRuns) {
+        int[] genNumList = {10, 50, 100, 200};
+        double[] averageFitnesses = new double[4];
+        EvolutionaryAgent testAgent;
+
+        System.out.println("========================\nTest 1: Vanilla GA");
+        for (int genNumIndex = 0; genNumIndex < 4; genNumIndex++) {
+            double bestFitnessTotal = 0;
+            testAgent = new EvolutionaryAgent(genNumList[genNumIndex]);
+            for (int run = 0; run < numRuns; run++) {
+                System.out.println("Run " + String.valueOf(run + 1) + " for gen. size of " +
+                        String.valueOf(genNumList[genNumIndex]));
+                Configuration bestConfig = testAgent.evolvePattern(true);
+                bestFitnessTotal += bestConfig.getScore();
+            }
+            averageFitnesses[genNumIndex] = bestFitnessTotal/20;
+            System.out.println(averageFitnesses[genNumIndex]);
+        }
+        System.out.println("========================");
+
+        for (int i = 0; i < 4; i++) {
+            System.out.println("When gen. size = " + String.valueOf(genNumList[i]) +
+                    " the avg. best fitness was: " + String.valueOf(averageFitnesses[i]));
+        }
+    }
+
+    public static void testHypermutation(int numRuns) {
+        double[] bestFitnesses = new double[15];
+        EvolutionaryAgent testAgent = new EvolutionaryAgent(200);
+        Configuration bestOverallConfig = new Configuration(testAgent.gridHeight, testAgent.gridWidth);
+
+        System.out.println("========================\nTest 3: Hypermutation");
+        for (int run = 0; run < numRuns; run++) {
+            System.out.println("Run " + String.valueOf(run + 1));
+            Configuration bestConfig = testAgent.evolvePattern(true);
+            bestFitnesses[run] = bestConfig.getScore();
+            System.out.println("The best fitness of Run " + String.valueOf(run + 1) +
+                    " is: " + String.valueOf(bestFitnesses[run]));
+            if (bestOverallConfig.getScore() < bestConfig.getScore()) {
+                bestOverallConfig.deepCopy(bestConfig);
+            }
+        }
+        System.out.println("========================");
+
+        double totalFitness = 0;
+        for (int i = 0; i < 15; i++) {
+            totalFitness += bestFitnesses[i];
+            System.out.println(bestFitnesses[i]);
+        }
+        System.out.println("The average of the best fitnesses is " + String.valueOf(totalFitness/15));
+        testAgent.displayPattern(bestOverallConfig);
+        System.out.println(bestOverallConfig.getScore());
+        testAgent.myGrid.viewSimulation(true, 50, bestOverallConfig);
     }
 
     public void displayPattern(Configuration config) {
@@ -94,6 +160,14 @@ public class EvolutionaryAgent {
         return avgFitness/popSize;
     }
 
+    private double calculateStandardDev(double avgFitness) {
+        double sumSquares = 0;
+        for (int i = 0; i < popSize; i++) {
+            sumSquares = Math.pow((population[i].getScore() - avgFitness), 2);
+        }
+        return Math.sqrt(sumSquares/popSize);
+    }
+
     private void triggerHyperMutation() {
         mutationChance = 20;
         crossoverChance = 20;
@@ -118,7 +192,6 @@ public class EvolutionaryAgent {
                 myGrid.setStartingConfiguration(config);
                 config.setScore(myGrid.runGame(numGameGens, false));
             }
-            System.out.println("Gen " + String.valueOf(gen));
             sortPopulation();
 
             // Optional triggered hypermutation
@@ -132,6 +205,7 @@ public class EvolutionaryAgent {
                     }
                 }
                 hyperMutationTimer++;
+                oldAvgFitness = newAvgFitness;
             }
 
             // Selection (w/ elitism)
@@ -142,7 +216,7 @@ public class EvolutionaryAgent {
             saveNewPopulation(newPopulation);
 
             // Apply chance for mutation
-            applyVariationOperators(numElites, mutationChance, crossoverChance);
+            applyVariationOperators(numElites/2, mutationChance, crossoverChance);
 
             // Reset mutation operators (if using triggered hypermutation)
             if (hyperMutationTriggered) {
@@ -158,6 +232,7 @@ public class EvolutionaryAgent {
 
         Configuration bestConfig = findBestConfiguration();
         saveConfiguration(bestConfig);
+
         return bestConfig;
     }
 
@@ -280,4 +355,65 @@ public class EvolutionaryAgent {
             population[i] = temp;
         }
     }
+
+    public static void baseCaseTesting() {
+        int[] saturationLevels = {10, 30, 50, 70, 90};
+        EvolutionaryAgent testAgent;
+
+        for (int i = 0; i < saturationLevels.length; i++) {
+            testAgent = new EvolutionaryAgent(16, 16, 500);
+
+            testAgent.generateStartingPopulation();
+            System.out.println("==========================");
+            System.out.println("Test Saturation Level: " + String.valueOf(saturationLevels[i]));
+            System.out.println("Pop Size: " + String.valueOf(testAgent.popSize));
+            System.out.println("Num Game Gens: " + String.valueOf(testAgent.numGameGens));
+
+            for (Configuration config : testAgent.population) {
+                config.setRandomConfiguration(saturationLevels[i]);
+                testAgent.myGrid.setStartingConfiguration(config);
+                config.setScore(testAgent.myGrid.runGame(testAgent.numGameGens, false));
+            }
+            double avgFitness = testAgent.calcAvgFitness();
+            double stdDev = testAgent.calculateStandardDev(avgFitness);
+            testAgent.saveTestResults(i + 1, avgFitness, stdDev, saturationLevels[i]);
+            System.out.println("Avg. Fitness of final gen: " + String.valueOf(avgFitness));
+            System.out.println("Std. Dev of final gen: " + String.valueOf(stdDev));
+        }
+    }
+
+    public static void knownPatternTesting() {
+        EvolutionaryAgent resultRecorder = new EvolutionaryAgent(16, 16, 500);
+        cellGrid myGrid = new cellGrid(16, 16);
+        String fileName;
+        double score;
+
+        for (int i = 0; i < 3; i++) {
+            fileName = "FamousPatterns/p" + String.valueOf(i + 1) + ".txt";
+            Configuration startingConfig = myGrid.loadStartingConfig(fileName);
+            myGrid.setStartingConfiguration(startingConfig);
+            score = myGrid.runGame(50, false);
+            resultRecorder.saveTestResults(i + 1, score, 0.0, 0);
+        }
+    }
+
+    private void saveTestResults(int testNum, double avgFitness, double stdDev, int saturationLevel) {
+        try {
+            String testName = "BaseTest" + String.valueOf(testNum);
+            String timeLog = new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime());
+            String fileName = testName + timeLog;
+
+            BufferedWriter out = new BufferedWriter(new FileWriter("testresults/" + fileName + ".txt"));
+            out.write("==========================");
+            out.write("Test: " + testName + "\n");
+            out.write("Test Saturation Level: " + saturationLevel + "\n");
+            out.write("Test time: " + timeLog + "\n");
+            out.write("Pop Size: " + String.valueOf(popSize) + "\n");
+            out.write("Num Game Gens: " + String.valueOf(numGameGens) + "\n");
+            out.write("Avg. Fitness of final gen: " + String.valueOf(avgFitness) + "\n");
+            out.write("Std. Dev of final gen: " + String.valueOf(stdDev) + "\n");
+            out.close();
+        } catch (IOException e) {}
+    }
+
 }

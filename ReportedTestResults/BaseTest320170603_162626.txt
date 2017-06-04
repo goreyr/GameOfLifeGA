@@ -1,0 +1,7 @@
+==========================Test: BaseTest3
+Test Saturation Level: 50
+Test time: 20170603_162626
+Pop Size: 500
+Num Game Gens: 50
+Avg. Fitness of final gen: 1143484.41
+Std. Dev of final gen: 366.51792711435377

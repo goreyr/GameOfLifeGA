@@ -12,8 +12,8 @@ import java.util.Random;
 
 public class Configuration implements Comparable<Configuration>{
     private boolean[][] configMatrix;
-    private int matrixHeight = 12;
-    private int matrixWidth = 12;
+    private int matrixHeight = 16;
+    private int matrixWidth = 16;
     private double score = 0;
     private Random randGen = new Random();
 
