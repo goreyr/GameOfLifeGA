@@ -60,17 +60,17 @@ public class EvolutionaryAgent {
     }
 
     public static void main(String args[]) {
-        /*EvolutionaryAgent myAgent = new EvolutionaryAgent(200);
+        EvolutionaryAgent myAgent = new EvolutionaryAgent(200);
         Configuration bestPattern = myAgent.evolvePattern(true);
         myAgent.displayPattern(bestPattern);
         System.out.println(bestPattern.getScore());
-        myAgent.myGrid.viewSimulation(true, 50, bestPattern);*/
+        myAgent.myGrid.viewSimulation(true, 50, bestPattern);
 
         int numRuns = 15;
         //baseCaseTesting();
         //knownPatternTesting();
         //runTest(numRuns);
-        testHypermutation(numRuns);
+        //testHypermutation(numRuns);
     }
 
     public static void runTest(int numRuns) {
